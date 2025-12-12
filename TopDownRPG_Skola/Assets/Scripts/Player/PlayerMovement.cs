@@ -11,6 +11,7 @@ public class PlayerMovement : MonoBehaviour
     private Vector2 moveInput;
     
     private Animator animator;
+    [HideInInspector]public bool canWalk = true;
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
@@ -22,22 +23,32 @@ public class PlayerMovement : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        rb.linearVelocity = new Vector2(moveInput.x * moveSpeed, moveInput.y * moveSpeed);
+        if (canWalk)
+        {
+            rb.linearVelocity = new Vector2(moveInput.x * moveSpeed, moveInput.y * moveSpeed);
+        }
+        else
+        {
+            rb.linearVelocity = Vector2.zero;
+        }
     }
 
     public void Move(InputAction.CallbackContext context)
     {
-        animator.SetBool("isWalking", true);
-
-        if (context.canceled)
+        if (canWalk)
         {
-            animator.SetBool("isWalking", false);
-            animator.SetFloat("LastInputX", moveInput.x);
-            animator.SetFloat("LastInputY", moveInput.y);
+            animator.SetBool("isWalking", true);
+
+            if (context.canceled)
+            {
+                animator.SetBool("isWalking", false);
+                animator.SetFloat("LastInputX", moveInput.x);
+                animator.SetFloat("LastInputY", moveInput.y);
+            }
+
+            moveInput = context.ReadValue<Vector2>();
+            animator.SetFloat("InputX", moveInput.x);
+            animator.SetFloat("InputY", moveInput.y);
         }
-        
-        moveInput = context.ReadValue<Vector2>();
-        animator.SetFloat("InputX", moveInput.x);
-        animator.SetFloat("InputY", moveInput.y);
     }
 }
