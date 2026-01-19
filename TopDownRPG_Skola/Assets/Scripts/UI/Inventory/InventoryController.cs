@@ -74,6 +74,7 @@ public class InventoryController : MonoBehaviour
         for (int i = 0; i < slotCount; i++)
         {
             Instantiate(slotPrefab, inventoryPanel.transform);
+            //Debug.Log("Slot instantiated " + i);
         }
         
         //Populate slots with saved items

@@ -117,6 +117,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: '::'
   ID: 2
+  name: Yakitori
 --- !u!212 &-7147140578974290755
 SpriteRenderer:
   m_ObjectHideFlags: 0

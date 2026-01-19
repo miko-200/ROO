@@ -7,6 +7,10 @@ public class ItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
     private Transform originalParent;
     private CanvasGroup canvasGroup;
+    
+    public float minDragDistance = 2f;
+    public float maxDragDistance = 3f;
+    
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
@@ -70,10 +74,50 @@ public class ItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         }
         else
         {
+            //If where we are dropping is not within inventory
+            if (!IsWithinInventory(eventData.position))
+            {
+                //Drop our item
+                DropItem(originalSlot);
+            }
+            else
+            {
+                //Snap back to og slot
+                transform.SetParent(originalParent);
+            }
             //No slot under drop point
             transform.SetParent(originalParent);
         }
+        
         GetComponent<RectTransform>().anchoredPosition = Vector2.zero; //Center
     }
 
+    private bool IsWithinInventory(Vector2 mousePosition)
+    {
+        RectTransform inventoryRect = originalParent.parent.GetComponent<RectTransform>();
+        return RectTransformUtility.RectangleContainsScreenPoint(inventoryRect, mousePosition);
+    }
+
+    private void DropItem(Slot originalSlot)
+    {
+        originalSlot.currentItem = null;
+        
+        //Find player
+        Transform playerTransform = GameObject.FindGameObjectWithTag("Player")?.transform;
+        if (playerTransform == null)
+        {
+            Debug.LogError("Missing player tag");
+            return;
+        }
+        
+        //Random drop position
+        Vector2 dropOffset = Random.insideUnitCircle.normalized * Random.Range(minDragDistance, maxDragDistance);
+        Vector2 dropPosition = (Vector2)playerTransform.position + dropOffset;
+        
+        //Instantiate drop item
+        Instantiate(gameObject, dropPosition, Quaternion.identity);
+        
+        //Destroy the UI one
+        Destroy(gameObject);
+    }
 }
