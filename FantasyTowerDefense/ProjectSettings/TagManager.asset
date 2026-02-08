@@ -2,8 +2,9 @@
 %TAG !u! tag:unity3d.com,2011:
 --- !u!78 &1
 TagManager:
-  serializedVersion: 2
-  tags: []
+  serializedVersion: 3
+  tags:
+  - Enemy
   layers:
   - Default
   - TransparentFX
@@ -11,8 +12,8 @@ TagManager:
   - 
   - Water
   - UI
-  - 
-  - 
+  - EnemyLayer
+  - Projectiles
   - 
   - 
   - 
@@ -41,3 +42,20 @@ TagManager:
   - name: Default
     uniqueID: 0
     locked: 0
+  - name: Ground
+    uniqueID: 3554590829
+    locked: 0
+  - name: AboveGround
+    uniqueID: 471097783
+    locked: 0
+  - name: Player
+    uniqueID: 684754737
+    locked: 0
+  - name: AbovePlayer
+    uniqueID: 1212063565
+    locked: 0
+  - name: Decoration
+    uniqueID: 1084161487
+    locked: 0
+  m_RenderingLayers:
+  - Default

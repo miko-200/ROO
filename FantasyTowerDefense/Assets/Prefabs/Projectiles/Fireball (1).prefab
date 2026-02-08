@@ -81,9 +81,9 @@ SpriteRenderer:
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
   m_GlobalIlluminationMeshLod: 0
-  m_SortingLayerID: 0
-  m_SortingLayer: 0
-  m_SortingOrder: 0
+  m_SortingLayerID: 684754737
+  m_SortingLayer: 3
+  m_SortingOrder: 1
   m_MaskInteraction: 0
   m_Sprite: {fileID: -6607481912129624618, guid: a4b4de69ef4cfdf4ca0c4c658cf4857d, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
@@ -105,7 +105,7 @@ Animator:
   m_GameObject: {fileID: 224979976627382001}
   m_Enabled: 1
   m_Avatar: {fileID: 0}
-  m_Controller: {fileID: 9100000, guid: 16990c4701f8e1e4e9bf2d813a40efff, type: 2}
+  m_Controller: {fileID: 9100000, guid: f9040d847a0098d4dbf89fd348c77071, type: 2}
   m_CullingMode: 0
   m_UpdateMode: 0
   m_ApplyRootMotion: 0
@@ -192,3 +192,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 70cef134b53e53e4c88626f147e1d697, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
+  speed: 5
+  damage: 4
+  lifetime: 5
+  pierce: 2
+  firerate: 1
+  hasExplosion: 1
+  explosionRadius: 1
+  explosionDamage: 1
+  deathParticles: {fileID: 0}
+  segments: 64
