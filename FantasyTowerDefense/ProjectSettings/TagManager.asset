@@ -48,10 +48,16 @@ TagManager:
   - name: AboveGround
     uniqueID: 471097783
     locked: 0
-  - name: Player
+  - name: Path
+    uniqueID: 3363864235
+    locked: 0
+  - name: AbovePath
+    uniqueID: 2295961545
+    locked: 0
+  - name: Tower
     uniqueID: 684754737
     locked: 0
-  - name: AbovePlayer
+  - name: AboveTower
     uniqueID: 1212063565
     locked: 0
   - name: Decoration
