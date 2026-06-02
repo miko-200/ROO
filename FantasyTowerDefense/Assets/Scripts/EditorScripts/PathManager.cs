@@ -42,7 +42,7 @@ public class PathManager : MonoBehaviour
     public void RefreshPathUI()
     {
         if (pathUIContainer == null || pathItemPrefab == null) return;
-
+        Debug.Log("Refreshing UI List");
         // 1. Clear existing items
         foreach (Transform child in pathUIContainer) {
             Destroy(child.gameObject);
@@ -52,20 +52,26 @@ public class PathManager : MonoBehaviour
         foreach (PathData path in allMapPaths)
         {
             GameObject itemObj = Instantiate(pathItemPrefab, pathUIContainer);
-            
-            // 3. Set the Text (Checks for TextMeshPro first, then standard Text)
-            var tmpText = itemObj.GetComponentInChildren<TMPro.TextMeshProUGUI>();
-            if (tmpText != null) {
-                tmpText.text = path.tilemapName;
-            } else {
-                var standardText = itemObj.GetComponentInChildren<UnityEngine.UI.Text>(); 
-                if (standardText != null) standardText.text = path.tilemapName;
-            }
+            ItemPathData itemPathData = itemObj.GetComponent<ItemPathData>();
 
-            // 4. Hook up the Button
-            var button = itemObj.GetComponentInChildren<UnityEngine.UI.Button>();
-            if (button != null) {
-                button.onClick.AddListener(() => EditExistingPath(path));
+            if (itemPathData != null)
+            {
+                // Calculate new properties
+                int entranceTilesCount = path.entranceTiles != null ? path.entranceTiles.Count : 0;
+                int possibleRoutesCount = path.subpathRoutes != null ? path.subpathRoutes.Count : 0;
+
+                // 3. Use the new Setup method
+                itemPathData.Setup(path, entranceTilesCount, possibleRoutesCount);
+
+                // 4. Hook up the Button
+                // The Setup method in ItemPathData already clears listeners, so we just add it here.
+                if (itemPathData.button != null) {
+                    itemPathData.button.onClick.AddListener(() => EditExistingPath(path));
+                }
+            }
+            else
+            {
+                Debug.LogWarning("PathItemPrefab does not have an ItemPathData component.");
             }
         }
     }
