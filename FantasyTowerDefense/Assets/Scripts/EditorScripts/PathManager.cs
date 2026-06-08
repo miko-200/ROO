@@ -6,6 +6,8 @@ using System.IO;
 using System.Linq;
 using UnityEngine.InputSystem;
 using UnityEngine.UI; // Added for Button
+using UnityEngine.EventSystems; // NEW: Added for UI event checking
+using TMPro; // NEW: Added for TextMeshProUGUI
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -34,7 +36,7 @@ public class PathManager : MonoBehaviour
     [Header("UI Interactions")]
     public GameObject CreateNewPathButton;
     public GameObject SavePathButton;
-    public GameObject DeletePathButton;
+    public GameObject DeletePathButton; // This is likely the button for the *active* path, not selected.
     
     [Header("UI List")]
     // Assign your 'Content' object here
@@ -46,11 +48,29 @@ public class PathManager : MonoBehaviour
     [Header("Selected Path UI")] // NEW: UI elements for the selected path card
     public GameObject pathInfoCard; // The UI panel/card that displays selected path info
     public Button editSelectedPathButton; // Button on the card to enter edit mode
-    // You might add Text fields here for path name, entrance count, etc.
+    public Button deleteSelectedPathBtn; // Button on the card to delete the selected path
+
+    // NEW: Text fields for the info card
+    public TextMeshProUGUI pathNameText;
+    public TextMeshProUGUI pathDescriptionText;
+    public TextMeshProUGUI numRoutesText;
+    public TextMeshProUGUI numEntrancesText;
+    public TextMeshProUGUI numExitsText;
+
 
     private void Start()
     {
         ClearSelection();
+        // Hook up the main DeletePathButton if it's meant for the currentActivePath
+        if (DeletePathButton != null)
+        {
+            Button btn = DeletePathButton.GetComponent<Button>();
+            if (btn != null)
+            {
+                btn.onClick.RemoveAllListeners();
+                btn.onClick.AddListener(DeleteCurrentPath);
+            }
+        }
     }
 
     public void RefreshPathUI()
@@ -107,6 +127,12 @@ public class PathManager : MonoBehaviour
     
     private void TrySelectPathFromScene()
     {
+        // NEW: Check if the pointer is over a UI element
+        if (EventSystem.current.IsPointerOverGameObject())
+        {
+            return; // Do not process world-space clicks if UI is being interacted with
+        }
+
         Vector3 mousePos = Mouse.current.position.ReadValue();
         Vector3 worldPos = Camera.main.ScreenToWorldPoint(new Vector3(mousePos.x, mousePos.y, Camera.main.nearClipPlane));
         worldPos.z = 0;
@@ -117,6 +143,7 @@ public class PathManager : MonoBehaviour
             if (cellPos.x < mapManager.mapBounds.xMin || cellPos.x > mapManager.mapBounds.xMax ||
                 cellPos.y < mapManager.mapBounds.yMin || cellPos.y > mapManager.mapBounds.yMax)
             {
+                ClearSelection(); // Clear selection if click is outside map bounds
                 return;
             }
         }
@@ -279,21 +306,34 @@ public class PathManager : MonoBehaviour
 
     public void DeleteCurrentPath()
     {
-        if (currentActivePath == null) return;
+        // If we are in edit mode, currentActivePath is the one to delete.
+        // If we are not in edit mode, but a path is selected, delete that one.
+        PathData pathToDelete = currentActivePath != null ? currentActivePath : selectedPath;
+
+        if (pathToDelete == null) return;
 
         // Remove from list
-        allMapPaths.Remove(currentActivePath);
+        allMapPaths.Remove(pathToDelete);
 
         // Delete File
 #if UNITY_EDITOR
-        string path = AssetDatabase.GetAssetPath(currentActivePath);
+        string path = AssetDatabase.GetAssetPath(pathToDelete);
         AssetDatabase.DeleteAsset(path);
 #endif
 
-        // Delete Tilemap
-        if (currentTilemapObj != null) DestroyImmediate(currentTilemapObj);
-        SwitchButtons();
-        ExitPainterMode();
+        // Delete Tilemap if it exists and belongs to the path being deleted
+        if (currentTilemapObj != null && currentTilemapObj.name == pathToDelete.tilemapName) DestroyImmediate(currentTilemapObj);
+        
+        // If the deleted path was the active one, exit painter mode
+        if (currentActivePath == pathToDelete)
+        {
+            ExitPainterMode();
+        }
+        else // If it was just a selected path, clear selection and refresh UI
+        {
+            ClearSelection();
+            RefreshPathUI();
+        }
     }
 
     private void ExitPainterMode()
@@ -302,6 +342,7 @@ public class PathManager : MonoBehaviour
         painter.activePath = null;
         painter.mainTilemap = null;
         currentActivePath = null;
+        currentTilemapObj = null; // Clear the reference to the tilemap GameObject
         
         ClearSelection(); // NEW: Clear selection and outlines when exiting painter mode
         
@@ -318,7 +359,7 @@ public class PathManager : MonoBehaviour
 
         Debug.Log("Entering Edit Mode for: " + pathToEdit.tilemapName);
         currentActivePath = pathToEdit;
-        selectedPath = pathToEdit; // NEW: Ensure selectedPath is also set when entering edit mode
+        selectedPath = pathToEdit; // Ensure selectedPath is also set when entering edit mode
 
         // 1. Find the path's specific Tilemap in the Grid
         Transform existingMap = grid.transform.Find(pathToEdit.tilemapName);
@@ -341,7 +382,7 @@ public class PathManager : MonoBehaviour
 
         SwitchButtons();
         UpdateGhosting();
-        RefreshSelectedPathUI(); // NEW: Refresh UI to show editing state
+        RefreshSelectedPathUI(); // Refresh UI to show editing state
         // painter.DrawPathOutlines(currentActivePath, true); // Moved to Update() for continuous refresh
     }
 
@@ -409,28 +450,61 @@ public class PathManager : MonoBehaviour
     {
         if (pathInfoCard == null || mainSelectionContainer == null) return;
 
-        if (selectedPath == null)
+        if (painter.enabled) // If we are in edit mode
         {
-            mainSelectionContainer.SetActive(true);
-            pathInfoCard.SetActive(false);
-            return;
+            mainSelectionContainer.SetActive(true); // Show the main panel (with Save/Delete for active path)
+            pathInfoCard.SetActive(false);        // Hide the info card
         }
-        
-        mainSelectionContainer.SetActive(false);
-        pathInfoCard.SetActive(true);
-        // TODO: Populate UI card with selectedPath.tilemapName, entranceTiles.Count, subpathRoutes.Count etc.
-        // For now, just a debug log.
-        Debug.Log($"Selected Path: {selectedPath.tilemapName}");
+        else // Not in edit mode
+        {
+            if (selectedPath == null)
+            {
+                mainSelectionContainer.SetActive(true);
+                pathInfoCard.SetActive(false);
+
+                // Clear text fields when no path is selected
+                if (pathNameText != null) pathNameText.text = "";
+                if (pathDescriptionText != null) pathDescriptionText.text = "";
+                if (numRoutesText != null) numRoutesText.text = "";
+                if (numEntrancesText != null) numEntrancesText.text = "";
+                if (numExitsText != null) numExitsText.text = "";
+            }
+            else // A path is selected, but not being edited
+            {
+                mainSelectionContainer.SetActive(false);
+                pathInfoCard.SetActive(true);
+                
+                // Populate UI card with selectedPath data
+                if (pathNameText != null) pathNameText.text = selectedPath.tilemapName;
+                
+                int entranceCount = selectedPath.entranceTiles != null ? selectedPath.entranceTiles.Count : 0;
+                int routeCount = selectedPath.subpathRoutes != null ? selectedPath.subpathRoutes.Count : 0;
+
+                if (pathDescriptionText != null) pathDescriptionText.text = $"A path with {entranceCount} entrances and {routeCount} distinct routes.";
+                if (numRoutesText != null) numRoutesText.text = $"Possible Routes: {routeCount}";
+                if (numEntrancesText != null) numEntrancesText.text = $"Entrance Tiles: {entranceCount}";
+                if (numExitsText != null) numExitsText.text = $"Exits: {routeCount}"; // Assuming one exit per route
+
+                Debug.Log($"Selected Path: {selectedPath.tilemapName}");
+            }
+        }
 
         // Hook up the Edit button on the card
         if (editSelectedPathButton != null)
         {
             editSelectedPathButton.onClick.RemoveAllListeners(); // Clear previous listeners
             editSelectedPathButton.onClick.AddListener(EnterEditModeFromSelection);
-            editSelectedPathButton.interactable = !painter.enabled; // Disable if painter is active
+            // Only interactable if not editing AND a path is selected
+            editSelectedPathButton.interactable = !painter.enabled && selectedPath != null; 
         }
-        // You might also want to update text fields here, e.g.:
-        // pathNameText.text = selectedPath.tilemapName;
-        // entranceCountText.text = selectedPath.subpathRoutes.Count.ToString();
+
+        // Hook up the Delete button on the card
+        if (deleteSelectedPathBtn != null)
+        {
+            deleteSelectedPathBtn.onClick.RemoveAllListeners(); // Clear previous listeners
+            deleteSelectedPathBtn.onClick.AddListener(DeleteCurrentPath); // Calls the existing delete method
+            // Only interactable if not editing AND a path is selected
+            deleteSelectedPathBtn.interactable = !painter.enabled && selectedPath != null; 
+        }
     }
 }
