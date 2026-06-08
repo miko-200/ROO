@@ -22,7 +22,7 @@ public class ItemPathData : MonoBehaviour
         // Ensure button is assigned, especially if not set in Inspector
         if (button == null)
         {
-            button = GetComponent<Button>();
+            button = GetComponentInChildren<Button>();
         }
     }
 

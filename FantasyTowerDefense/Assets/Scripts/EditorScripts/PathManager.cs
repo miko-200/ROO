@@ -5,6 +5,7 @@ using UnityEngine.Tilemaps;
 using System.IO;
 using System.Linq;
 using UnityEngine.InputSystem;
+using UnityEngine.UI; // Added for Button
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -15,6 +16,7 @@ public class PathManager : MonoBehaviour
     [Header("References")]
     public PathPainter painter;
     public Grid grid; // The parent Grid object
+    public MapManager mapManager;
     
     [Header("Visual Merging")]
     public Tilemap masterTilemap; // Create a new Tilemap in your Grid for this
@@ -27,6 +29,7 @@ public class PathManager : MonoBehaviour
     public List<PathData> allMapPaths = new List<PathData>();
     private PathData currentActivePath;
     private GameObject currentTilemapObj;
+    private PathData selectedPath; // NEW: Stores the currently selected path (not necessarily being edited)
 
     [Header("UI Interactions")]
     public GameObject CreateNewPathButton;
@@ -37,7 +40,18 @@ public class PathManager : MonoBehaviour
     // Assign your 'Content' object here
     public Transform pathUIContainer;     
     // Assign your 'Item' prefab here
-    public GameObject pathItemPrefab; 
+    public GameObject pathItemPrefab;
+    public GameObject mainSelectionContainer;
+
+    [Header("Selected Path UI")] // NEW: UI elements for the selected path card
+    public GameObject pathInfoCard; // The UI panel/card that displays selected path info
+    public Button editSelectedPathButton; // Button on the card to enter edit mode
+    // You might add Text fields here for path name, entrance count, etc.
+
+    private void Start()
+    {
+        ClearSelection();
+    }
 
     public void RefreshPathUI()
     {
@@ -63,10 +77,10 @@ public class PathManager : MonoBehaviour
                 // 3. Use the new Setup method
                 itemPathData.Setup(path, entranceTilesCount, possibleRoutesCount);
 
-                // 4. Hook up the Button
-                // The Setup method in ItemPathData already clears listeners, so we just add it here.
+                // 4. Hook up the Button to SELECT the path, not edit it directly
                 if (itemPathData.button != null) {
-                    itemPathData.button.onClick.AddListener(() => EditExistingPath(path));
+                    itemPathData.button.onClick.RemoveAllListeners(); // Clear existing listeners
+                    itemPathData.button.onClick.AddListener(() => SelectPath(path)); // Changed to SelectPath
                 }
             }
             else
@@ -83,6 +97,12 @@ public class PathManager : MonoBehaviour
         {
             TrySelectPathFromScene();
         }
+
+        // NEW: If painter is enabled (in edit mode), continuously update outlines
+        if (painter.enabled && currentActivePath != null)
+        {
+            painter.DrawPathOutlines(currentActivePath, true);
+        }
     }
     
     private void TrySelectPathFromScene()
@@ -92,6 +112,14 @@ public class PathManager : MonoBehaviour
         worldPos.z = 0;
         
         Vector3Int cellPos = masterTilemap.WorldToCell(worldPos);
+        if (mapManager != null)
+        {
+            if (cellPos.x < mapManager.mapBounds.xMin || cellPos.x > mapManager.mapBounds.xMax ||
+                cellPos.y < mapManager.mapBounds.yMin || cellPos.y > mapManager.mapBounds.yMax)
+            {
+                return;
+            }
+        }
 
         // Find which path(s) contain this clicked cell
         List<PathData> clickedPaths = new List<PathData>();
@@ -106,8 +134,36 @@ public class PathManager : MonoBehaviour
         if (clickedPaths.Count > 0) {
             // If they click an intersection, we just grab the first one. 
             // They can use the UI list if they meant to grab the underlying one.
-            EditExistingPath(clickedPaths[0]);
+            SelectPath(clickedPaths[0]); // Changed to SelectPath
+        } else {
+            ClearSelection(); // NEW: Clear selection if no path is clicked
         }
+    }
+
+    // NEW: Method to select a path and refresh UI
+    public void SelectPath(PathData path)
+    {
+        if (painter.enabled) return; // Cannot select while editing
+
+        selectedPath = path;
+        RefreshSelectedPathUI();
+        painter.DrawPathOutlines(selectedPath, false); // Draw outlines for selected path
+    }
+
+    // NEW: Method to clear the current path selection
+    public void ClearSelection()
+    {
+        selectedPath = null;
+        RefreshSelectedPathUI();
+        painter.ClearPathOutlines(); // Clear any drawn outlines
+    }
+
+    // NEW: Method to enter edit mode from the selected path
+    public void EnterEditModeFromSelection()
+    {
+        if (selectedPath == null) return;
+        EditExistingPath(selectedPath);
+        // The EditExistingPath method will handle calling painter.DrawPathOutlines(currentActivePath, true);
     }
     
 
@@ -120,6 +176,8 @@ public class PathManager : MonoBehaviour
     public void StartNewPath()
     {
         Debug.Log("Starting new path");
+        
+        ClearSelection(); // NEW: Clear any existing selection when starting a new path
         
         SwitchButtons();
         
@@ -170,6 +228,7 @@ public class PathManager : MonoBehaviour
         painter.LoadFromActivePath();
 
         UpdateGhosting();
+        // painter.DrawPathOutlines(currentActivePath, true); // Moved to Update() for continuous refresh
         Debug.Log("Painter ready to use");
     }
 
@@ -243,7 +302,8 @@ public class PathManager : MonoBehaviour
         painter.activePath = null;
         painter.mainTilemap = null;
         currentActivePath = null;
-        currentTilemapObj = null;
+        
+        ClearSelection(); // NEW: Clear selection and outlines when exiting painter mode
         
         // Return all paths to full visibility
         SetAllAlphas(1.0f);
@@ -258,6 +318,7 @@ public class PathManager : MonoBehaviour
 
         Debug.Log("Entering Edit Mode for: " + pathToEdit.tilemapName);
         currentActivePath = pathToEdit;
+        selectedPath = pathToEdit; // NEW: Ensure selectedPath is also set when entering edit mode
 
         // 1. Find the path's specific Tilemap in the Grid
         Transform existingMap = grid.transform.Find(pathToEdit.tilemapName);
@@ -280,6 +341,8 @@ public class PathManager : MonoBehaviour
 
         SwitchButtons();
         UpdateGhosting();
+        RefreshSelectedPathUI(); // NEW: Refresh UI to show editing state
+        // painter.DrawPathOutlines(currentActivePath, true); // Moved to Update() for continuous refresh
     }
 
     public bool HasPathAt(Vector3Int cellPos) {
@@ -300,7 +363,8 @@ public class PathManager : MonoBehaviour
     {
         foreach (Transform child in grid.transform) {
             Tilemap tm = child.GetComponent<Tilemap>();
-            if (tm != null && tm != painter.ghostTilemap) {
+            // Exclude ghostTilemap and outlineTilemap from alpha changes
+            if (tm != null && tm != painter.ghostTilemap && tm != painter.outlineTilemap) {
                 Color c = tm.color;
                 c.a = alpha;
                 tm.color = c;
@@ -338,5 +402,35 @@ public class PathManager : MonoBehaviour
             Tile combinedTile = painter.GetTileFromMask(kvp.Value);
             masterTilemap.SetTile(kvp.Key, combinedTile);
         }
+    }
+
+    // NEW: Refreshes the UI card for the selected path
+    public void RefreshSelectedPathUI()
+    {
+        if (pathInfoCard == null || mainSelectionContainer == null) return;
+
+        if (selectedPath == null)
+        {
+            mainSelectionContainer.SetActive(true);
+            pathInfoCard.SetActive(false);
+            return;
+        }
+        
+        mainSelectionContainer.SetActive(false);
+        pathInfoCard.SetActive(true);
+        // TODO: Populate UI card with selectedPath.tilemapName, entranceTiles.Count, subpathRoutes.Count etc.
+        // For now, just a debug log.
+        Debug.Log($"Selected Path: {selectedPath.tilemapName}");
+
+        // Hook up the Edit button on the card
+        if (editSelectedPathButton != null)
+        {
+            editSelectedPathButton.onClick.RemoveAllListeners(); // Clear previous listeners
+            editSelectedPathButton.onClick.AddListener(EnterEditModeFromSelection);
+            editSelectedPathButton.interactable = !painter.enabled; // Disable if painter is active
+        }
+        // You might also want to update text fields here, e.g.:
+        // pathNameText.text = selectedPath.tilemapName;
+        // entranceCountText.text = selectedPath.subpathRoutes.Count.ToString();
     }
 }

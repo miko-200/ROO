@@ -118,7 +118,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5181033937091753679, guid: 34cc29cefa32c994fa2a04c0efce801c, type: 3}
       propertyPath: m_Name
-      value: ItemPath
+      value: ItemPathPrefab
       objectReference: {fileID: 0}
     - target: {fileID: 8462147173909466257, guid: 34cc29cefa32c994fa2a04c0efce801c, type: 3}
       propertyPath: m_AnchorMax.x
@@ -173,3 +173,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dbca0265ec14c0d419d156630e8ff27b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
+  itemName: 
+  ItemImage: {fileID: 0}
+  button: {fileID: 5070350693403427679}
+  itemDescription: 
+  numberOfEntranceTiles: 0
+  numberOfPossibleRoutes: 0
+  associatedPathData: {fileID: 0}
+--- !u!114 &5070350693403427679 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 1821052900455657740, guid: 34cc29cefa32c994fa2a04c0efce801c, type: 3}
+  m_PrefabInstance: {fileID: 6852276180308800083}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Button

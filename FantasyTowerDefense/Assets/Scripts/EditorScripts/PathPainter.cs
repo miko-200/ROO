@@ -17,6 +17,7 @@ public class PathPainter : MonoBehaviour
     [Header("Tilemaps")]
     public Tilemap mainTilemap;
     public Tilemap ghostTilemap;
+    public Tilemap outlineTilemap; // NEW: Tilemap for drawing outlines
     
     [Header("Inputs")]
     public InputAction paintAction;
@@ -26,6 +27,11 @@ public class PathPainter : MonoBehaviour
     public Sprite single, horizontal, vertical, fourWay;
     public Sprite cornerUR, cornerRD, cornerDL, cornerLU;
     public Sprite tUp, tRight, tDown, tLeft, endUp, endRight, endDown, endLeft;
+
+    [Header("Outline Tiles")] // NEW: Tiles for outlines
+    public Tile greenOutlineTile;
+    public Tile redOutlineTile;
+    public Tile blueOutlineTile;
 
     private Dictionary<Vector3Int, ConnectionData> currentSessionData = new();
     private Dictionary<int, Tile> tileLookup = new();
@@ -112,9 +118,8 @@ public class PathPainter : MonoBehaviour
             if (!isPaintingStroke) {
                 isPaintingStroke = true;
                 strokeStartCell = currentCell;
-                if (IsOnEdge(currentCell) && activePath.entranceTiles.Count == 0) {
-                    activePath.entranceTiles.Add(currentCell);
-                }
+                // Removed: if (IsOnEdge(currentCell) && activePath.entranceTiles.Count == 0) { activePath.entranceTiles.Add(currentCell); }
+                // Entrance logic moved to after stroke ends for robustness
                 PaintInitialCell(currentCell);
                 lastPaintedCell = currentCell;
             }
@@ -133,6 +138,32 @@ public class PathPainter : MonoBehaviour
             strokeStartCell = null;
             lastPaintedCell = null;
             SaveToActivePath();
+
+            // NEW: After a stroke, if no entrance is defined, find one
+            if (activePath.entranceTiles.Count == 0 && currentSessionData.Count > 0)
+            {
+                // Find any dead-end tile on the edge and make it the entrance
+                Vector3Int? potentialEntrance = currentSessionData.Keys.FirstOrDefault(pos => IsOnEdge(pos) && GetConnectionCount(currentSessionData[pos].Mask) == 1);
+                if (potentialEntrance.HasValue)
+                {
+                    activePath.entranceTiles.Add(potentialEntrance.Value);
+                    Debug.Log($"New entrance assigned: {potentialEntrance.Value}");
+                }
+            }
+            // NEW: If the current entrance tile was removed or is no longer a valid dead-end, find a new one
+            else if (activePath.entranceTiles.Count > 0 && 
+                     (!currentSessionData.ContainsKey(activePath.entranceTiles[0]) || 
+                      !IsOnEdge(activePath.entranceTiles[0]) || 
+                      GetConnectionCount(currentSessionData[activePath.entranceTiles[0]].Mask) != 1))
+            {
+                activePath.entranceTiles.Clear();
+                Vector3Int? potentialEntrance = currentSessionData.Keys.FirstOrDefault(pos => IsOnEdge(pos) && GetConnectionCount(currentSessionData[pos].Mask) == 1);
+                if (potentialEntrance.HasValue)
+                {
+                    activePath.entranceTiles.Add(potentialEntrance.Value);
+                    Debug.Log($"Entrance was removed or became invalid, new entrance assigned: {potentialEntrance.Value}");
+                }
+            }
         }
 
         // 2. Erase Logic
@@ -140,7 +171,8 @@ public class PathPainter : MonoBehaviour
             RemoveTile(currentCell);
             SaveToActivePath();
         }
-        FindObjectOfType<PathManager>().UpdateMasterVisuals();
+        // Removed: FindObjectOfType<PathManager>().UpdateMasterVisuals();
+        // PathManager will now call UpdateMasterVisuals explicitly when needed.
     }
     
     public bool IsPathValid(out string errorMessage)
@@ -277,7 +309,8 @@ public class PathPainter : MonoBehaviour
         DisconnectNeighbor(pos + Vector3Int.left, RIGHT);
 
         currentSessionData.Remove(pos);
-        if (activePath.entranceTiles.Contains(pos)) activePath.entranceTiles.Remove(pos);
+        // Removed: if (activePath.entranceTiles.Contains(pos)) activePath.entranceTiles.Remove(pos);
+        // Entrance removal logic moved to after stroke ends for robustness
     }
 
     void DisconnectNeighbor(Vector3Int nPos, int maskToClear) {
@@ -408,6 +441,76 @@ public class PathPainter : MonoBehaviour
     
     public Tile GetTileFromMask(int mask) {
         if (tileLookup.ContainsKey(mask)) return tileLookup[mask];
+        // NEW: Log if a mask is not found, to help debug merging issues
+        Debug.LogWarning($"Tile for mask {mask} not found in lookup. Defaulting to single tile.");
         return tileLookup[0]; // Default to single tile
+    }
+
+    // NEW: Draws outlines for a given path
+    public void DrawPathOutlines(PathData path, bool isEditing)
+    {
+        if (outlineTilemap == null) return;
+
+        outlineTilemap.ClearAllTiles();
+        if (path == null) return;
+
+        // Determine which connection data to use
+        IEnumerable<SerializableConnection> connectionsToDraw;
+        if (isEditing)
+        {
+            // When editing, use the current session data for real-time updates
+            connectionsToDraw = currentSessionData.Select(kvp => new SerializableConnection { pos = kvp.Key, mask = kvp.Value.Mask });
+        }
+        else
+        {
+            // When just selected, use the saved data
+            connectionsToDraw = path.savedConnections;
+        }
+
+
+        foreach (var connection in connectionsToDraw)
+        {
+            Tile outlineTile = blueOutlineTile; // Default to blue for regular path
+            Vector3Int drawPos = connection.pos; // Position where the outline will be drawn
+
+            bool isEntrance = path.entranceTiles.Contains(connection.pos);
+            bool isEndpoint = IsValidEndpoint(connection.pos);
+            int currentMask = isEditing && currentSessionData.ContainsKey(connection.pos) ? currentSessionData[connection.pos].Mask : connection.mask;
+            bool isDeadEnd = GetConnectionCount(currentMask) == 1;
+
+            // Prioritize entrance (green)
+            // Then check for exit (red), only if it's not an entrance
+            if (isEndpoint && isDeadEnd) 
+            {
+                outlineTile = redOutlineTile;
+
+                // Adjust drawPos if the actual endpoint is outside the visible bounds
+                // This ensures the red outline is drawn just inside the boundary
+                if (connection.pos.x < paintableBounds.xMin) drawPos.x = paintableBounds.xMin;
+                else if (connection.pos.x >= paintableBounds.xMax) drawPos.x = paintableBounds.xMax - 1; // -1 because bounds are exclusive max
+
+                if (connection.pos.y < paintableBounds.yMin) drawPos.y = paintableBounds.yMin;
+                else if (connection.pos.y >= paintableBounds.yMax) drawPos.y = paintableBounds.yMax - 1; // -1 because bounds are exclusive max
+            }
+            
+            if (isEntrance)
+            {
+                outlineTile = greenOutlineTile;
+            }
+            
+            if (outlineTile != null)
+            {
+                outlineTilemap.SetTile(drawPos, outlineTile);
+            }
+        }
+    }
+
+    // NEW: Clears all outlines
+    public void ClearPathOutlines()
+    {
+        if (outlineTilemap != null)
+        {
+            outlineTilemap.ClearAllTiles();
+        }
     }
 }
