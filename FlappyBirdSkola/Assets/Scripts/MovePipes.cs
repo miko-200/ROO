@@ -9,7 +9,7 @@ public class MovePipes : MonoBehaviour
     {
         if (canMove)
         {
-            transform.position += Vector3.right * Time.deltaTime * -speed;
+            transform.position += Vector3.right * Time.deltaTime * -speed; //moves pipes left
         }
     }
 }

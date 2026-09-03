@@ -10,7 +10,7 @@ public class GameOver : MonoBehaviour
     public TextMeshProUGUI scoreText;
     public TextMeshProUGUI highscoreText;
     
-    public GameObject deathScreen;
+    public GameObject deathScreen; //shadow over the screen, score & highsocre text in middle, home and retry button
     public GameObject scoreTracker;
     
     private void CalculateScore()
@@ -32,15 +32,15 @@ public class GameOver : MonoBehaviour
 
     public void Retry()
     {
-        this.gameObject.GetComponent<Pause>().PauseGame();
+        this.gameObject.GetComponent<Pause>().PauseGame(); //unpauses game
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 
     public void ShowGameOverScreen()
     {
-        this.gameObject.GetComponent<Pause>().PauseGame();
+        this.gameObject.GetComponent<Pause>().PauseGame(); //pauses the game
         CalculateScore();
-        deathScreen.SetActive(true);
-        scoreTracker.SetActive(false);
+        deathScreen.SetActive(true); // enables death screen
+        scoreTracker.SetActive(false); //disables score text
     }
 }

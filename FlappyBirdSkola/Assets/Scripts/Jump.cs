@@ -29,7 +29,7 @@ public class Jump : MonoBehaviour
         controls.Disable();
     }
 
-    private void GoUp()
+    private void GoUp() //player will "jump"
     {
         rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpForce);
     }

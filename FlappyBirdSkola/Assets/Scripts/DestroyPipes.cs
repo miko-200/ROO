@@ -2,7 +2,7 @@ using UnityEngine;
 
 public class DestroyPipes : MonoBehaviour
 {
-    public GameObject generatePipes;
+    //public GameObject generatePipes;
     private void OnTriggerEnter2D(Collider2D other)
     {
         Debug.Log(other.gameObject.name);
